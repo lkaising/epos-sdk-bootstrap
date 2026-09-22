@@ -1,3 +1,5 @@
+> Archived implementation handoff, version 2.2. The original text below is preserved for its schemas and recovery requirements. Statements that implementation or Ubuntu testing have not occurred are historical. See the [current README](../../README.md) and [validation record](../validation.md) for implementation status, host results, and the approved ZIP format exception. This document does not authorize host changes or integration experiments.
+
 # EPOS SDK Bootstrap — implementation handoff
 
 Version: 2.2 · Revised: 2026-09-22 · Target: Ubuntu 24.04 amd64

@@ -1,10 +1,10 @@
 # Validation record
 
-The implementation targets system-card version 2.2. No real SDK installation, native vendor load, host package change, group change, or host udev configuration change is authorized by the implementation task. Real installation and integration validation require explicit approval.
+The implementation follows the [archived system card, version 2.2](archive/system-card-v2.2.md), with the approved ZIP format exception below. Development used isolated fixtures. The user subsequently ran the normal installation and removal sequence on `ws01` and supplied the terminal output. This record distinguishes those reported host results from automated fixture tests and checks still pending.
 
 ## Research and static inspection
 
-On 2026-09-22 a fresh download matched all three release hashes and the archive size in Appendix A:
+On 2026-09-22 a fresh download matched all three release hashes and the archive size in `config/sdk-release.json`:
 
 | Artifact | SHA-256 |
 |---|---|
@@ -14,11 +14,11 @@ On 2026-09-22 a fresh download matched all three release hashes and the archive 
 
 The ZIP directory lists 21 regular files and 13 directories, with 27,134,657 uncompressed file bytes. These counts come from archive metadata, without executing or installing the payload.
 
-Static inspection confirmed the EPOS binary uses `DT_RPATH`, not `DT_RUNPATH`. No binary was loaded. The bootstrap retains the specified FTDI preload, empty working directory, and mapped-path checks.
+Static inspection confirmed the EPOS binary uses `DT_RPATH`. That inspection did not load either library. The later host verification reported successful loading using the FTDI preload, empty working directory, and mapped-path checks.
 
 ## Approved ZIP format exception
 
-The freshly downloaded pinned archive contains 34 entries with zero Unix file-type bits. Section 8.3's original requirement to accept only explicit Unix regular-file and directory bits would reject the pinned vendor release itself.
+The freshly downloaded pinned archive contains 34 entries with zero Unix file-type bits. The archived system card's section 8.3 requirement to accept only explicit Unix regular-file and directory bits would reject the pinned vendor release itself.
 
 The user approved a narrow exception during implementation. Absent Unix type bits are accepted only when the ZIP creator and DOS attributes identify an ordinary file or directory consistently. Explicit symlinks, devices, sockets, and other special types remain refused. No archive or library pin changed. Path traversal, root, duplicate, and case-collision checks still apply before extraction.
 
@@ -39,18 +39,36 @@ The tests cover:
 
 The full CLI lifecycle used synthetic shared objects in a test-owned checkout with a synthetic manifest. The exported test functions abort if invoked. Install, verify, repeat install, uninstall, and repeat uninstall passed with one stubbed download and no sudo invocation. A separate synthetic EPOS library depended on the synthetic FTDI SONAME, exercising the preload through the real isolated child. The suite uses an already installed C compiler for these two tests and skips them if none exists. It never installs a compiler or recompiles the vendor SDK.
 
-Production apt dispatch was checked with recording mocks. HTTPS-only and redirect bounds were checked as curl arguments with no test network requests. Fixtures do not establish live repository/server behavior, actual account and udev effects, or vendor loading on a supported host. Those remain part of the approved installation sequence below.
+Production apt dispatch was checked with recording mocks. HTTPS-only and redirect bounds were checked as curl arguments with no test network requests. Fixtures alone do not establish live repository/server behavior, actual account and udev effects, or vendor loading on a supported host. The reported host run below supplies additional evidence for the normal lifecycle.
 
-## Pending first installation
+## Reported host lifecycle
 
-After explicit approval, use a disposable Ubuntu 24.04 amd64 host with unrestricted sudo and functioning `systemd-udevd`. Keep controllers disconnected. Record OS, machine and Debian architectures, `/usr/bin/python3` version and bitness, manifest hashes, and the `DT_RPATH` observation.
+The user supplied transcripts from `ws01` on branch `impl/mvp`. The host gate reported Ubuntu 24.04 x86_64, and verification reported `/usr/bin/python3` 3.12.3, 64-bit. A separate `systemctl is-active systemd-udevd.service` command returned `active`. The prefix was `/home/labuser/workspace/upstream/epos-sdk`.
 
-1. Run `install --dry-run` and review the prefix, packages, group changes, rules, and sudo commands.
-2. Run `install`, then `verify`, with a custom prefix containing a space.
-3. Observe native initialization effects. Confirm mapped library paths, export resolution without calls, absence of unexpected persistent state, and temporary-directory cleanup.
-4. Repeat `install`. Confirm unchanged artifacts and identity, zero sudo calls, no reload, and no download or apt invocation.
-5. Check actual root ownership and `0644` mode of the rules file, configured membership, effective-session advice, and active udev service.
-6. Test competing prefixes under the production rules-directory lock and interruption recovery with durable registration intent. Confirm a failed or interrupted reload retries even when rule bytes already match.
-7. Run `uninstall`, then `uninstall` again. Confirm the second run exits 0 without sudo, that the owned rule and publication temporaries are absent, and that package, group, and preexisting membership retention matches recorded provenance.
+| Step | Reported result |
+|---|---|
+| `install --dry-run` | No conflicts; missing `python3-venv`; proposed the dedicated group, membership, and canonical rules. |
+| `install` | Installed the missing dependency, retained the pinned archive, validated 21 payload files, configured USB access, loaded both libraries from the managed prefix, and resolved exports without calls. Verification passed. |
+| Standalone `verify` | Receipt phase `complete`, zero missing owned entries, native loading and all required checks passed. This preceded sourcing `setup.bash`. |
+| Repeat `install` | No missing packages; reported `installation already satisfied; no changes`. No confirmation or privileged operation appeared in the output. |
+| Source `setup.bash` | Returned silently, as designed. Environment values were not separately captured. |
+| `uninstall --dry-run` | Previewed removal of managed content, registration, and the membership added by the installation. |
+| `uninstall` | After confirmation, reported `uninstall complete` and the intended retention of packages and the group. |
+| Repeat `uninstall` | Reported `not installed; nothing to remove`, without confirmation or a privileged operation in the output. |
 
-These integration checks remain pending. A container cannot establish host udev acceptance. Controller communication, USB permissions on actual hardware, commissioning, and motor operation remain outside v1 acceptance even after this sequence passes.
+The session-membership warning was expected because the running shell had not picked up the new `epos` group. The final reported state has the SDK removed. Packages and the group are retained by design.
+
+These are user-supplied command results. No independent syscall/process audit, before-and-after file snapshot, or post-removal account listing was supplied. The verifier checked rule ownership and mode internally, but a separate `stat` result was not recorded. Controller attachment state was not explicitly recorded. The output establishes a successful normal lifecycle at the default prefix, not completion of every acceptance criterion.
+
+## Remaining acceptance checks
+
+Use a disposable Ubuntu 24.04 amd64 host with unrestricted sudo and functioning `systemd-udevd` for interruption and concurrency experiments. Keep controllers disconnected. These tests require explicit approval before an agent runs them.
+
+1. Repeat the lifecycle with a custom prefix containing a space.
+2. Record rule ownership and `0644` mode separately, and verify configured membership and effective groups after a fresh login.
+3. Audit a healthy rerun for unchanged artifact hashes and timestamps, zero sudo calls, and no reload, download, or apt invocation.
+4. Observe vendor initialization effects and check for unexpected persistent files and temporary-directory cleanup.
+5. Exercise competing prefixes and interrupted system operations under the production directory lock. Confirm reload retry when rule bytes already match and when operative rules have already been removed.
+6. After removal, separately verify absent managed files, registration and publication temporaries, removed tool-added membership, and retained packages, group, and preexisting memberships.
+
+Fixtures cover these branches, but the corresponding production checks remain pending. A container cannot establish host udev acceptance. Controller communication, USB permissions on actual hardware, commissioning, and motor operation remain outside this project's acceptance criteria.

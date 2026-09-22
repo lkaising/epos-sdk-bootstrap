@@ -2,7 +2,7 @@
 
 `bootstrap-epos-sdk` installs maxon's pinned EPOS Linux Library 6.8.1.0 in a user-owned directory on Ubuntu 24.04 amd64. It configures restricted USB permissions and checks the software without opening a controller or calling an EPOS API function.
 
-Real installation and Ubuntu integration testing are pending explicit user approval. Isolated tests do not establish that the vendor libraries work on a host with running udev. See [validation status](docs/validation.md).
+A user-reported run on an Ubuntu 24.04 x86_64 host completed install, standalone verification, repeat install, uninstall, and repeat uninstall. Native loading and the normal removal path passed. Production interruption and concurrency tests remain pending. See [validation status](docs/validation.md).
 
 ## Requirements
 
@@ -78,7 +78,7 @@ Only one installation can register per machine. A different prefix or owner is a
 
 A missing archive may be downloaded again. Unexpected bytes in an existing archive or managed file cause a refusal. The tool does not overwrite them. Missing packages cause apt to contact the machine's configured repositories. `verify` and `uninstall` use no network.
 
-ZIP validation rejects traversal, other roots, duplicate and case-colliding paths, symlinks, and special files before extraction. The approved exception to system-card section 8.3 accepts absent Unix type bits only for ordinary DOS/Windows file or directory entries with consistent attributes. The pinned vendor ZIP uses that format. Explicit Unix special-file types remain refused. See [the recorded decision](docs/validation.md#approved-zip-format-exception).
+ZIP validation rejects traversal, other roots, duplicate and case-colliding paths, symlinks, and special files before extraction. Entries with absent Unix type bits are accepted only for ordinary DOS/Windows files or directories with consistent attributes. The pinned vendor ZIP uses that format. Explicit Unix special-file types remain refused. See [the recorded decision](docs/validation.md#approved-zip-format-exception).
 
 ## What verification proves
 
@@ -86,7 +86,7 @@ ZIP validation rejects traversal, other roots, duplicate and case-colliding path
 
 A bounded child process uses `/usr/bin/python3 -I -B` with an empty environment and fresh empty working directory. It rehashes both libraries, loads FTDI by absolute path with `RTLD_GLOBAL`, then loads EPOS. It checks `/proc/self/maps` for the exact files and resolves `VCS_OpenDevice`, `VCS_CloseDevice`, and `VCS_GetDriverInfo` without calling them. Timeout is 10 seconds with a two-second kill grace period. The check needs no sourced activation file and cleans its temporary directory.
 
-Loading executes vendor initialization code. Its effects still need observation during approved Ubuntu validation. The tool makes no explicit controller enumeration, connection, data request, or motor command. Verification does not prove controller communication, motor configuration, safe motion, or vendor certification for Ubuntu 24.04.
+Loading executes vendor initialization code. The reported host run loaded both libraries successfully; initialization side effects have not been independently traced. The tool makes no explicit controller enumeration, connection, data request, or motor command. Verification does not prove controller communication, motor configuration, safe motion, or vendor certification for Ubuntu 24.04.
 
 Configured membership and effective process groups differ. A new membership may require a new login or SSH session. Verification passes with an advisory when configuration is correct but this session is stale. An already attached controller may require reconnection using its documented power-off USB procedure during the later hardware workflow. Other udev rules may grant additional access.
 
@@ -140,9 +140,13 @@ Uninstall removes the user's membership only if this installation added it. It r
 
 Tests use temporary directories, synthetic payloads, simulated accounts and reloads, and recording command stubs. They do not install host packages, change groups, or modify host udev configuration. Python syntax checks use `ast.parse` to avoid bytecode files. Shell checks require `shellcheck`; missing tooling is reported.
 
-The first real installation requires approval and a disposable Ubuntu 24.04 amd64 host with sudo and working udev. See [pending validation](docs/validation.md).
+The normal lifecycle has passed on a real Ubuntu host. Remaining acceptance checks include a custom path containing spaces, interrupted system changes, concurrent prefixes, and observation of vendor initialization. Run destructive recovery experiments only on a disposable Ubuntu 24.04 amd64 host with sudo and working udev. See [validation results and remaining checks](docs/validation.md).
 
 The [Command Library manual](https://www.maxongroup.com/medias/sys_master/root/9157360353310/EPOS-Command-Library-En.pdf) lists older Ubuntu releases, not Ubuntu 24.04 certification. EPOS Studio commissioning, tuning, backups, USB communication, and motor operation remain outside this project. EPOS2's possible `ftdi_sio`/D2XX conflict belongs to later hardware troubleshooting. The tool never blacklists or unloads drivers, detaches devices, or probes that conflict. See [FTDI's explanation](https://ftdichip.com/faq/can-i-just-load-the-d2xx-drivers-and-run-a-d2xx-application-on-a-newly-installed-linux-system/).
+
+## Maintainer reference
+
+The [archived implementation system card](docs/archive/system-card-v2.2.md) preserves the original receipt schemas, registration states, and recovery requirements. Its pre-implementation status statements are historical. Use this README for commands and the [validation record](docs/validation.md) for current evidence and approved changes.
 
 ## License
 

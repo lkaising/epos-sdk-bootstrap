@@ -75,3 +75,9 @@ pnpm-debug.log*
 .htmlreport/
 coverage/
 *.lcov
+
+# Downloaded vendor software and Python bytecode never belong in this repository.
+__pycache__/
+*.py[cod]
+EPOS-Linux-Library-En.zip
+EPOS_Linux_Library/

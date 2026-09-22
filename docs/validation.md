@@ -28,6 +28,12 @@ Run `./tests/run-tests.sh` for the suite, `bash -n`, `shellcheck -x`, and Python
 
 On 2026-09-22, `./tests/run-tests.sh` passed 117 tests with no skips, plus `bash -n`, `shellcheck -x`, and AST parsing of all 10 Python files. The environment was an Ubuntu 24.04.5 container, x86_64 and Debian amd64, with `/usr/bin/python3` 3.12.3 and ShellCheck 0.9.0. `git diff --check` also passed.
 
+A later run on `ws01` reported nine CLI assertion failures while a real SDK registration existed. The CLI tests had temporary SDK prefixes but still read the host rules directory. Their expected-success dry runs correctly refused the different registered prefix. The earlier 117-test result did not expose this dependency because that environment had no registration.
+
+The CLI tests now select a private fixture rules directory, provide simulated account and udev observations, and stub package queries. Three added regression tests check explicit fixture selection, preservation of a conflicting fixture registration, and simulated membership observations. The fixture-selection check also catches the original mistake on hosts with no real registration.
+
+After this correction, `./tests/run-tests.sh` passed all 120 tests with no skips, plus `bash -n`, `shellcheck -x`, and AST parsing of all 10 Python files. `git diff --check` passed. Read-only snapshots before and after the full suite confirmed unchanged content and metadata for 43 installed SDK/registration paths and an unchanged `epos` group record. The fix changes tests only; production ownership checks are unchanged.
+
 The tests cover:
 
 - CLI parsing, destination precedence, unsupported hosts, path protections, and read-only dry runs.
@@ -56,7 +62,7 @@ The user supplied transcripts from `ws01` on branch `impl/mvp`. The host gate re
 | `uninstall` | After confirmation, reported `uninstall complete` and the intended retention of packages and the group. |
 | Repeat `uninstall` | Reported `not installed; nothing to remove`, without confirmation or a privileged operation in the output. |
 
-The session-membership warning was expected because the running shell had not picked up the new `epos` group. The final reported state has the SDK removed. Packages and the group are retained by design.
+The session-membership warning was expected because the running shell had not picked up the new `epos` group. At the end of that reported sequence, the SDK was removed. Packages and the group were retained by design. A later read-only inspection during the CLI test-isolation fix found an installed registration with a new UUID.
 
 These are user-supplied command results. No independent syscall/process audit, before-and-after file snapshot, or post-removal account listing was supplied. The verifier checked rule ownership and mode internally, but a separate `stat` result was not recorded. Controller attachment state was not explicitly recorded. The output establishes a successful normal lifecycle at the default prefix, not completion of every acceptance criterion.
 

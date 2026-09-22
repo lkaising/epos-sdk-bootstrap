@@ -1,12 +1,18 @@
 """Public CLI checks. Every potentially mutating external command fails closed."""
+import json
 import os
+import pwd
 from pathlib import Path
 import subprocess
 import tempfile
+import sys
+import uuid
 import unittest
 
 PROJECT = Path(__file__).resolve().parents[1]
 ENTRY = PROJECT / "bootstrap-epos-sdk"
+sys.path.insert(0, str(PROJECT / "lib"))
+import system_config
 
 
 class CliTests(unittest.TestCase):
@@ -18,13 +24,24 @@ class CliTests(unittest.TestCase):
         self.bin.mkdir()
         self.log = self.root / "forbidden-calls"
         self.prefix = self.root / "SDK directory"
+        # Prefix isolation alone is insufficient: the CLI also reads the
+        # machine registration and accounts. Keep those observations private.
+        self.udev = self.root / "udev"
+        self.udev.mkdir()
+        self.state_path = self.udev / system_config.STATE_NAME
+        self.state_path.write_text(json.dumps(dict(
+            group_exists=False, members=[], primary_members=[],
+            service_active=True, reload_ok=True, events=[])))
+        self.state_path.chmod(0o644)
         self.env = dict(os.environ)
         for key in ("EPOS_SDK_DIR", "EPOS_BOOTSTRAP_UDEV_DIR", "WSL_DISTRO_NAME",
                     "PYTHONPATH", "LD_PRELOAD", "LD_LIBRARY_PATH", "LD_AUDIT"):
             self.env.pop(key, None)
         self.env.update(PATH=str(self.bin) + ":/usr/sbin:/usr/bin:/sbin:/bin",
                         NO_COLOR="1", LC_ALL="C", PYTHONDONTWRITEBYTECODE="1",
-                        CLI_TEST_LOG=str(self.log))
+                        CLI_TEST_LOG=str(self.log), EPOS_BOOTSTRAP_UDEV_DIR=str(self.udev))
+        # Package observations must not depend on what this host has installed.
+        self.stub("dpkg-query", '#!/bin/bash\nprintf installed\n')
         for command in ("sudo", "curl", "apt-get", "groupadd", "gpasswd", "udevadm",
                         "flock", "timeout", "python3"):
             self.stub(command, '#!/bin/bash\nprintf "<<< %s" "$0" >> "$CLI_TEST_LOG"\nprintf " <%s>" "$@" >> "$CLI_TEST_LOG"\nprintf " >>>\\n" >> "$CLI_TEST_LOG"\nexit 97\n')
@@ -164,6 +181,52 @@ class CliTests(unittest.TestCase):
         for value in ("fixture", ""):
             self.assert_exit(2, self.run_cli("install", "--dry-run", "--sdk-dir", self.prefix,
                                            extra_env={"WSL_DISTRO_NAME": value}))
+
+    def test_dry_runs_select_private_fixture_backend(self):
+        self.require_supported_host()
+        # Checking the explicit backend marker catches regressions even on a
+        # CI host without a real SDK registration, where the old tests passed.
+        for command, expected in (("install", 0), ("verify", 1), ("uninstall", 0)):
+            with self.subTest(command=command):
+                result = self.run_cli(command, "--dry-run", "--sdk-dir", self.prefix)
+                self.assert_exit(expected, result)
+                self.assertIn(f"TEST MODE: udev directory overridden to {self.udev}", result.stderr)
+                self.assertNotIn("/etc/udev/rules.d/", result.stdout + result.stderr)
+        self.assertEqual([], json.loads(self.state_path.read_text())["events"])
+
+    def test_conflicting_fixture_registration_still_blocks_dry_runs(self):
+        self.require_supported_host()
+        account = pwd.getpwuid(os.getuid())
+        other_prefix = self.root / "registered SDK"
+        registration = dict(
+            installation_uuid=str(uuid.uuid4()), prefix=str(other_prefix),
+            uid=account.pw_uid, username=account.pw_name, sdk_version="6.8.1.0",
+            group="epos", group_existed_before=True, membership_existed_before=False,
+            schema_version=1, state="installed", reload_pending=False)
+        target = self.udev / system_config.RULE_NAME
+        content = system_config.canonical_rules(registration)
+        target.write_bytes(content)
+        target.chmod(0o644)
+        for command in ("install", "verify", "uninstall"):
+            with self.subTest(command=command):
+                result = self.run_cli(command, "--dry-run", "--sdk-dir", self.prefix)
+                self.assert_exit(1, result)
+                self.assertIn(f"registration conflict at {target}", result.stderr)
+                self.assertIn(str(other_prefix), result.stderr)
+                self.assertEqual(content, target.read_bytes())
+
+    def test_fixture_accounts_supply_group_and_membership_observations(self):
+        self.require_supported_host()
+        state = json.loads(self.state_path.read_text())
+        state.update(group_exists=True, members=[pwd.getpwuid(os.getuid()).pw_name])
+        self.state_path.write_text(json.dumps(state))
+        for command in ("getent", "systemctl"):
+            self.stub(command, '#!/bin/bash\nprintf "%s\\n" "$0" >> "$CLI_TEST_LOG"\nexit 97\n')
+        result = self.run_cli("install", "--dry-run", "--sdk-dir", self.prefix)
+        self.assert_exit(0, result)
+        self.assertIn("group change: retain existing epos group", result.stdout)
+        self.assertIn("membership change: already configured", result.stdout)
+        self.assertIn('"membership_existed_before":true', result.stdout)
 
     def test_entrypoint_symlink_resolves_helpers(self):
         self.require_supported_host()

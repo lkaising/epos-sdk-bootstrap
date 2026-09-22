@@ -1,0 +1,77 @@
+### ==========================================
+### Operating System Junk Files
+### ==========================================
+
+### macOS
+
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon\r
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+### Windows
+
+ehthumbs.db
+ehthumbs_vista.db
+$RECYCLE.BIN/
+*.lnk
+
+### ==========================================
+### Credentials, Secrets & Local Environments
+### ==========================================
+
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.secret
+*.passwd
+
+### ==========================================
+### Common IDEs and Editors
+### ==========================================
+
+### Visual Studio Code
+
+.vscode/
+!.vscode/extensions.json
+*.code-workspace
+
+### IntelliJ / JetBrains (PyCharm, WebStorm, etc.)
+
+.idea/
+*.iws
+*.iml
+*.ipr
+
+### Vim / Emacs
+
+*~
+*.swp
+*.swo
+.netrwhist
+
+### ==========================================
+### Logs and Runtime Diagnostics
+### ==========================================
+
+*.log
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### ==========================================
+### Universal Test / Coverage Output
+### ==========================================
+
+.htmlreport/
+coverage/
+*.lcov

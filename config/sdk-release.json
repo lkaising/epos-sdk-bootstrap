@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "sdk_version": "6.8.1.0",
+  "archive": {
+    "url": "https://www.maxongroup.com/medias/sys_master/root/9443687202846/EPOS-Linux-Library-En.zip",
+    "filename": "EPOS-Linux-Library-En.zip",
+    "size_bytes": 8001401,
+    "sha256": "467df7a69d67ae02d976c23a807e6bc4c00e4635e06d1330d29637868aa335b5",
+    "top_level_dir": "EPOS_Linux_Library"
+  },
+  "arch": {
+    "uname_m": "x86_64",
+    "lib_subdir": "lib/intel/x86_64",
+    "elf_class": 2,
+    "elf_data": 1,
+    "elf_machine": 62
+  },
+  "libraries": {
+    "ftdi": {
+      "filename": "libftd2xx.so.1.4.8",
+      "link": "libftd2xx.so",
+      "soname": "libftd2xx.so",
+      "sha256": "a6b2a5eacea47aa3b8fc5ab8d49a05abf2ba1e65db8f5b174b9486e92b73c94f"
+    },
+    "epos": {
+      "filename": "libEposCmd.so.6.8.1.0",
+      "link": "libEposCmd.so",
+      "soname": "libEposCmd.so",
+      "sha256": "02478aa383eefd5f39458d4c75183ae04fb765c49d75a989e4d71e6a3a10ec2a"
+    }
+  },
+  "required_members": [
+    "EULA.txt",
+    "include/Definitions.h",
+    "lib/intel/x86_64/libEposCmd.so.6.8.1.0",
+    "lib/intel/x86_64/libftd2xx.so.1.4.8"
+  ],
+  "expected_symbols": ["VCS_OpenDevice", "VCS_CloseDevice", "VCS_GetDriverInfo"],
+  "udev_rules": [
+    { "label": "EPOS2 (FTDI)", "id_vendor": "0403", "id_product": "a8b0" },
+    { "label": "EPOS4",        "id_vendor": "24e7", "id_product": "3b01" }
+  ]
+}
